@@ -17,15 +17,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.qrcodescanerjetpack.data.MainDb
 import com.example.qrcodescanerjetpack.data.Product
+import com.example.qrcodescanerjetpack.ui.theme.Purple80
 import com.example.qrcodescanerjetpack.ui.theme.QRcodeScanerJetpackTheme
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -70,6 +73,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    private val scanCheckLauncher = registerForActivityResult(ScanContract()) { result ->
+        if (result.contents == null) {
+            Toast.makeText(this, "scandata: null", Toast.LENGTH_SHORT).show()
+
+        } else {
+            CoroutineScope(Dispatchers.IO).launch {
+                val productByQr = mainDb.dao.getProductByQr(result.contents)
+                if (productByQr == null) {
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "scandata: not added", Toast.LENGTH_SHORT)
+                            .show()
+
+                    }
+                } else {
+                    mainDb.dao.updateProduct(productByQr.copy(isChecked = true))
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -85,24 +109,40 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .padding(top = 15.dp)
                             .fillMaxWidth()
-                            .fillMaxHeight(0.9f),
+                            .fillMaxHeight(0.7f),
                     ) {
                         items(productStateList.value) { product ->
                             Spacer(modifier = Modifier.height(10.dp))
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 10.dp, end = 10.dp)
+                                    .padding(start = 10.dp, end = 10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (product.isChecked) {
+                                        Color.Blue
+                                    } else {
+                                        Purple80
+                                    },
+                                    contentColor = if (product.isChecked) {
+                                        Purple80
+                                    } else {
+                                        Color.Blue
+                                    }
+                                )
                             ) {
-
+                                Text(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(15.dp),
+                                    text = product.name,
+                                    textAlign = TextAlign.Center,
+                                    color = if (product.isChecked) {
+                                        Color.Red    // Цвет текста для карточки с checked
+                                    } else {
+                                        Color.Black // Цвет текста для карточки без checked
+                                    }
+                                )
                             }
-                            Text(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(15.dp),
-                                text = product.name,
-                                textAlign = TextAlign.Center
-                            )
                         }
                     }
                     Button(onClick = {
@@ -110,17 +150,30 @@ class MainActivity : ComponentActivity() {
                     }) {
                         Text(text = "Create data")
                     }
+
+                    Button(onClick = {
+                        scanCheck()
+                    }) {
+                        Text(text = "Check data")
+                    }
                 }
             }
         }
     }
 
     private fun scan() {
-        val options = ScanOptions()
-        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        options.setPrompt("add new product")
-        options.setCameraId(0) // Use a specific camera of the device
+        scanLauncher.launch(getScanOptions())
+    }
 
-        scanLauncher.launch(options)
+    private fun scanCheck() {
+        scanCheckLauncher.launch(getScanOptions())
+    }
+
+    private fun getScanOptions(): ScanOptions {
+        return ScanOptions().apply {
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            setPrompt("add new product")
+            setCameraId(0) // Use a specific camera of the device
+        }
     }
 }
