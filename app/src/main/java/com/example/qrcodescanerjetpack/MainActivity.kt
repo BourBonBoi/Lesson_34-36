@@ -37,7 +37,6 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    //push
     @Inject
     lateinit var mainDb: MainDb
     var counter = 0
